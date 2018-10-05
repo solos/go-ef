@@ -124,7 +124,8 @@ func (ef *EliasFano) Insert(number uint64) {
 		temp := ef.Decompress()
 		arr = append(arr, number)
 		arr = append(arr, temp...)
-		ef.n = ef.n + 1
+		length := uint64(len(arr))
+		ef.Extend(ef.universe, length)
 		ef.Compress(arr)
 		return
 	}
@@ -156,7 +157,7 @@ func (ef *EliasFano) Insert(number uint64) {
 		ef.Extend(max, length)
 		ef.Compress(arr)
 	} else {
-		ef.n = uint64(len(arr))
+		ef.Extend(ef.universe, uint64(len(arr)))
 		ef.Compress(arr)
 	}
 	return
