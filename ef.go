@@ -35,6 +35,9 @@ type EliasFano struct {
 
 // New creates a new empty EliasFano object
 func New(universe uint64, n uint64) *EliasFano {
+	if universe <= 0 || n <= 0 {
+		return nil
+	}
 	var lowerBits uint64
 	if lowerBits = 0; universe > n {
 		lowerBits = msb(universe / n)
@@ -69,6 +72,95 @@ func (ef *EliasFano) Compress(elems []uint64) {
 			ef.highBitsPos = high
 		}
 	}
+}
+
+func (ef *EliasFano) Decompress() []uint64 {
+
+	ef.Reset()
+	arr := []uint64{}
+	if ef.Size() > 0 {
+		arr = append(arr, ef.Value())
+	}
+	for i := uint64(0); i < ef.Size(); i++ {
+		v, err := ef.Next()
+		if err != nil {
+			continue
+		}
+		arr = append(arr, v)
+	}
+	return arr
+}
+
+func (ef *EliasFano) Extend(universe uint64, n uint64) {
+
+	if universe <= 0 || n <= 0 {
+		return
+	}
+
+	var lowerBits uint64
+	if lowerBits = 0; universe > n {
+		lowerBits = msb(universe / n)
+	}
+	higherBitsLength := n + (universe >> lowerBits) + 2
+	mask := (uint64(1) << lowerBits) - 1
+	lowerBitsOffset := higherBitsLength
+	bvLen := lowerBitsOffset + n*uint64(lowerBits)
+	b := bitset.New(uint(bvLen))
+	ef.b = b
+	ef.universe = universe
+	ef.n = n
+	ef.lowerBits = lowerBits
+	ef.higherBitsLength = higherBitsLength
+	ef.mask = mask
+	ef.lowerBitsOffset = lowerBitsOffset
+	ef.bvLen = bvLen
+}
+
+func (ef *EliasFano) Insert(number uint64) {
+
+	ef.Reset()
+	arr := []uint64{}
+	if ef.Value() > number {
+		temp := ef.Decompress()
+		arr = append(arr, number)
+		arr = append(arr, temp...)
+		length := uint64(len(arr))
+		ef.Extend(ef.universe, length)
+		ef.Compress(arr)
+		return
+	}
+
+	if ef.Size() > 0 {
+		arr = append(arr, ef.Value())
+	}
+
+	inserted := false
+	maxChanged := false
+	for i := uint64(0); i < ef.Size(); i++ {
+		v, err := ef.Next()
+		if err != nil {
+			continue
+		}
+		if !inserted && number < v {
+			arr = append(arr, number)
+			inserted = true
+		}
+		arr = append(arr, v)
+	}
+	if !inserted {
+		arr = append(arr, number)
+		maxChanged = true
+	}
+	if maxChanged {
+		max := number
+		length := uint64(len(arr))
+		ef.Extend(max, length)
+		ef.Compress(arr)
+	} else {
+		ef.Extend(ef.universe, uint64(len(arr)))
+		ef.Compress(arr)
+	}
+	return
 }
 
 // Move the internal iterator to the given position and returns a value or an error.
